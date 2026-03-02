@@ -1,0 +1,57 @@
+name: Deploy Cellgame
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Emscripten
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Build Web Version
+        run: |
+          make -f Makefile.emcc clean
+          make -f Makefile.emcc
+
+      # Move build output to root of deploy folder
+      - name: Prepare deploy folder
+        run: |
+          mkdir deploy
+          cp bin/Web/cellgame.html deploy/index.html
+          cp bin/Web/cellgame.js deploy/
+          cp bin/Web/cellgame.wasm deploy/
+          cp bin/Web/cellgame.data deploy/ || true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: deploy
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
